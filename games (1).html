@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23ffffff'/></svg>">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>faapd</title>
+
+  <style>
+    .games-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .game-card {
+      display: block;
+      width: 280px;
+      text-decoration: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .game-card:hover {
+      opacity: 0.85;
+    }
+
+    .game-thumb {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      display: block;
+      border: 1px dashed #000000;
+      background-color: #f0f0f0;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.9);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-box {
+      background: #ffffff;
+      border: 1px solid #000000;
+      padding: 25px;
+      width: 300px;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .modal-box h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      margin-bottom: 15px;
+      letter-spacing: 0.5px;
+    }
+
+    .modal-box input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .modal-actions button {
+      background: #000000;
+      color: #ffffff;
+      border: none;
+      padding: 6px 12px;
+      font-size: 11px;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .modal-actions button.cancel-btn {
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #000000;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="layout-container"></div>
+
+  <template id="games-content">
+    <div id="games-grid" class="games-grid">
+      <!-- Games load dynamically -->
+    </div>
+  </template>
+
+  <div id="login-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h3>Account Login</h3>
+      <input type="password" id="modal-passcode" placeholder="Enter Passcode" />
+      <div class="modal-actions">
+        <button class="cancel-btn" id="modal-cancel">Cancel</button>
+        <button id="modal-submit">Enter</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const GITHUB_USERNAME = "famouspunk4";
+    const REPO_NAME = "faapd";
+
+    fetch('layout.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('layout-container').innerHTML = html;
+        
+        const content = document.getElementById('games-content').content.cloneNode(true);
+        const mainContent = document.getElementById('main-content');
+        
+        if (mainContent) {
+          mainContent.appendChild(content);
+        } else {
+          document.getElementById('layout-container').appendChild(content);
+        }
+
+        initModalEvents();
+        loadGames();
+      })
+      .catch(err => {
+        console.error('Error loading layout:', err);
+        const content = document.getElementById('games-content').content.cloneNode(true);
+        document.getElementById('layout-container').appendChild(content);
+        loadGames();
+      });
+
+    async function loadGames() {
+      const gridContainer = document.getElementById('games-grid');
+      
+      try {
+        const response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/games`);
+        if (!response.ok) throw new Error('Repository folder not reached');
+        
+        const files = await response.json();
+        const htmlFiles = files.filter(file => file.name.toLowerCase().endsWith('.html'));
+
+        if (htmlFiles.length === 0) {
+          gridContainer.innerHTML = '<p style="font-family: Arial; font-size: 11px;">No games available.</p>';
+          return;
+        }
+
+        gridContainer.innerHTML = '';
+
+        htmlFiles.forEach(file => {
+          const gameFile = file.name;
+          const baseName = file.name.replace(/\.html$/i, '');
+          
+          // Primary relative URL path served directly by GitHub Pages
+          const thumbUrl = `./games/${baseName}.png`;
+
+          const card = document.createElement('a');
+          card.href = `play.html?game=${encodeURIComponent(gameFile)}`;
+          card.className = 'game-card';
+          
+          card.innerHTML = `
+            <img 
+              src="${thumbUrl}" 
+              alt="${baseName}" 
+              class="game-thumb" 
+            />
+          `;
+          
+          gridContainer.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error('Error fetching games dynamically:', err);
+        gridContainer.innerHTML = `
+          <a href="play.html?game=zonbikillaz.html" class="game-card">
+            <img src="./games/zonbikillaz.png" alt="zonbikillaz" class="game-thumb" />
+          </a>
+        `;
+      }
+    }
+
+    function initModalEvents() {
+      const accountIconBtn = document.getElementById('account-icon-btn');
+      const loginModal = document.getElementById('login-modal');
+      const modalCancel = document.getElementById('modal-cancel');
+      const modalSubmit = document.getElementById('modal-submit');
+      const modalPasscode = document.getElementById('modal-passcode');
+
+      if (accountIconBtn) {
+        accountIconBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          loginModal.style.display = 'flex';
+          modalPasscode.focus();
+        });
+      }
+
+      if (modalCancel) {
+        modalCancel.addEventListener('click', () => {
+          loginModal.style.display = 'none';
+          modalPasscode.value = '';
+        });
+      }
+
+      if (modalSubmit) modalSubmit.addEventListener('click', handleLogin);
+      if (modalPasscode) {
+        modalPasscode.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') handleLogin();
+        });
+      }
+
+      function handleLogin() {
+        if (modalPasscode.value.trim() !== '') {
+          loginModal.style.display = 'none';
+          window.location.href = 'create.html';
+        } else {
+          alert('Please enter a passcode.');
+        }
+      }
+    }
+  </script>
+</body>
+</html>
